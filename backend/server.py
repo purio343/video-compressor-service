@@ -22,17 +22,22 @@ def tcp_handler():
         connection, address = sock.accept()
         try:
              header = connection.recv(32)
+             print('Received header')
              filesize = int.from_bytes(header, "big")
+             print(f'Filesize: {filesize}')
              # ファイルが4GBを超える場合はエラー
              if not check_filesize(filesize):
                   raise Exception("File size is too large")
-             data = connection.recv(filesize)
+             print('Checked filesize')
+             data = receive_movie_data(connection, filesize)
+             print('Received movie data')
              if not is_mp4(data):
                   raise Exception("File is not mp4")
              
              # レスポンスは16バイト
              response = create_response()
              connection.sendall(response)
+             print('Sent response')
 
         except Exception as e:
              print(f'{str(e)}')
@@ -57,6 +62,16 @@ def create_response():
     reserved2 = b'\x00\x00\x00\x00'
 
     return status_code + file_type + reserved1 + reserved2
+
+def receive_movie_data(connection, filesize):
+     data = b''
+     while len(data) < filesize:
+          chunk = connection.recv(min(filesize - len(data), 1400))
+          if not chunk:
+               raise Exception("Connection is closed")
+          data += chunk
+          
+     return data
 
 if __name__ == "__main__":
     main()

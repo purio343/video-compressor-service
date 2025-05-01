@@ -3,9 +3,6 @@ import threading
 import sys
 import json
 
-with open("config.json", "r") as f:
-        config = json.load(f)
-
 def main():
     config = load_config()
     server_info = (config["server_address"], config["server_port"])

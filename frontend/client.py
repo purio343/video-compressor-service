@@ -3,23 +3,33 @@ import json
 import sys
 import os
 import math
+from tqdm import tqdm
 
 def main():
     config = load_config()
     server_info = (config["server_address"], config["server_port"])
 
-    file_path = input("Type the path of the file you want to upload: ")
-    if not os.path.exists(file_path):
-        print(f'File not found: {file_path}')
-        sys.exit(1)
+    while True:
+        file_path = input("Type the path of the file you want to upload: ")
+        if not os.path.exists(file_path):
+            print(f'File not found: {file_path}')
+        elif not file_path.lower().endswith('.mp4'):
+            print('Only MP4 files are allowed.')
+        else:
+            break
     tcp_handler(file_path, server_info)
 
 def tcp_handler(file_path, server_info):
     try:
         tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_sock.settimeout(15)
         tcp_sock.connect(server_info)
         send_file(tcp_sock, file_path)
-        receive_response(tcp_sock)
+        status_code, file_type = receive_response(tcp_sock)
+        print(f'Server > Status: {status_code}, Type: {file_type}')
+    except socket.timeout:
+        print('This connection is time out.')
+        sys.exit(1)
     except socket.error as e:
         print(f"Error connecting to server: {e}")
         sys.exit(1)
@@ -36,11 +46,12 @@ def send_file(sock, file_path):
             header = filesize.to_bytes(32, 'big')
             sock.sendall(header)
 
-            data = f.read(1400)
-            while data:
-                print(f'Sending {len(data)} bytes')
-                sock.sendall(data)
+            with tqdm(total=filesize, unit='B', unit_scale=True, desc='Uploading') as pbar:
                 data = f.read(1400)
+                while data:
+                    sock.sendall(data)
+                    pbar.update(len(data))
+                    data = f.read(1400)
     except FileNotFoundError as e:
         print(f'File not found: {e}')
         sys.exit(1)
@@ -48,7 +59,9 @@ def send_file(sock, file_path):
 def receive_response(sock):
     try:
         response = sock.recv(16)
-        print(f'{response.decode()}')
+        status_code = response[:4].decode().strip()
+        file_type = response[4:8].decode().strip()
+        return [status_code, file_type]
     except socket.error as e:
         print(f'Error receiving response: {e}')
         sys.exit(1)

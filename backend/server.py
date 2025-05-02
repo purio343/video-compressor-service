@@ -2,16 +2,13 @@ import socket
 import threading
 import sys
 import json
-
-with open("config.json", "r") as f:
-        config = json.load(f)
+import time
+import os
 
 def main():
-    config = load_config()
-    server_info = (config["server_address"], config["server_port"])
-    tcp_thread = threading.Thread(target=tcp_handler, args=(server_info,),daemon=True)
-    tcp_thread.start()
-    tcp_thread.join()
+     config = load_config()
+     server_info = (config["server_address"], config["server_port"])
+     tcp_handler(server_info)
 
 def tcp_handler(server_info):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -22,25 +19,34 @@ def tcp_handler(server_info):
 
     while True:
         connection, address = sock.accept()
-        try:
-             header = connection.recv(32)
-             print('Received header')
-             filesize = int.from_bytes(header, "big")
-             print(f'Filesize: {filesize}')
-             data = receive_movie_data(connection, filesize)
-             print('Received movie data')
-             if not is_mp4(data):
-                  raise Exception("File is not mp4")
-             
-             # レスポンスは16バイト
-             response = create_response()
-             connection.sendall(response)
-             print('Sent response')
+        handle_client_thread = threading.Thread(target=handle_client, args=(connection, address), daemon=True)
+        handle_client_thread.start()
+        
+def handle_client(connection, address):
+     try:
+          header = connection.recv(32)
+          print('Received header')
+          filesize = int.from_bytes(header, "big")
+          print(f'Filesize: {filesize}')
+          data = receive_movie_data(connection, filesize)
+          print('Received movie data')
+          if not is_mp4(data):
+               raise Exception("File is not mp4")
+          
+          # レスポンスは16バイト
+          response = create_response()
+          connection.sendall(response)
+          print('Sent response')
 
-        except Exception as e:
-             print(f'{str(e)}')
-        finally:
-             connection.close()
+          # save_data(data)
+
+     except Exception as e:
+          print(f'{str(e)}')
+          # 16バイト
+          error_res = b'400 ERR \x00\x00\x00\x00\x00\x00\x00\x00'
+          connection.sendall(error_res)
+     finally:
+          connection.close()
 
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
@@ -78,6 +84,17 @@ def load_config(path='config.json'):
      except json.JSONDecodeError:
           print(f'Invalid JSON format in config file: {path}')
           sys.exit(1)
+
+def save_data(data: bytes):
+     folder = 'uploaded'
+     filename = f'{str(time.time())}.mp4'
+     filepath = os.path.join(folder, filename)
+
+     if not os.path.exists(folder):
+          os.makedirs(folder)
+
+     with open(filepath, 'wb') as f:
+          f.write(data)
 
 if __name__ == "__main__":
     main()

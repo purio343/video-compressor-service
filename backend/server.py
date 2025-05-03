@@ -102,11 +102,11 @@ def save_data(data: bytes):
           f.write(data)
 
 def calc_movie_size(path='uploaded'):
+     total = 0
      if not os.path.exists(path):
           print('Uploaded file is none')
-          return 0
+          return total
      
-     total = 0
      for movie in os.listdir(path):
           movie_path = os.path.join(path, movie)
           if os.path.isfile(movie_path):

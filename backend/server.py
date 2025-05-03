@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import os
+from editing import compress_video
 
 def main():
      config = load_config()
@@ -29,21 +30,31 @@ def tcp_handler(server_info):
         
 def handle_client(connection, address):
      try:
-          header = connection.recv(32)
+          # ヘッダーは8バイト
+          header = connection.recv(8)
           print('Received header')
-          filesize = int.from_bytes(header, "big")
-          print(f'Filesize: {filesize}')
-          data = receive_movie_data(connection, filesize)
-          print('Received movie data')
-          if not is_mp4(data):
-               raise Exception("File is not mp4")
+          # filesize = int.from_bytes(header, "big")
+          json_length = int.from_bytes(header[:2], 'big')
+          media_type_length = int.from_bytes(header[2:3], 'big')
+          payload_length = int.from_bytes(header[3:8], 'big')
           
-          # レスポンスは16バイト
-          response = create_response()
-          connection.sendall(response)
-          print('Sent response')
+          json_file = connection.recv(json_length)
+          media_type = connection.recv(media_type_length).decode('utf-8')
+          # 動画ファイル
+          payload = receive_movie_data(connection, payload_length)
+          # 処理前の動画を保存してパスを返す
+          file_path = save_data(payload)
 
-          save_data(data)
+          print('Received movie data')
+
+          # 送信されたjsonファイルから要求されたリクエストを読み取る
+          operation = json.load(json_file)["operation"]
+          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズを返す
+          data, data_size = handle_payload(operation, file_path)          
+          compressed_header, compressed_body = create_response(data, data_size)
+          connection.sendall(compressed_header)
+          connection.sendall(compressed_body)
+          print('Sent response')
 
      except Exception as e:
           print(f'{str(e)}')
@@ -53,21 +64,29 @@ def handle_client(connection, address):
      finally:
           connection.close()
 
+def handle_payload(operation, file_path):
+     if operation == 'compress':
+          compressed_path = compress_video(file_path)
+          compressed_size = os.path.getsize(compressed_path)
+          data = b''
+          with open(compressed_path, 'rb') as f:
+               data = f.read()
+          return [data, compressed_size]
+     
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
      return b'ftyp' in data[:12]
 
-def create_response():
-     # 3桁＋空白で4バイト
-    status_code = b'200 '
-    # ファイル種別, 4バイト
-    file_type = b'MP4 '
-    # 予備領域, 4バイト
-    reserved1 = b'\x00\x00\x00\x00'
-    # 予備領域, 4バイト
-    reserved2 = b'\x00\x00\x00\x00'
-
-    return status_code + file_type + reserved1 + reserved2
+def create_response(data, data_size):
+     # 2バイト
+     json_length = b'\x00\x00'
+     # 1バイト
+     media_type_length = len(b'mp4 ').to_bytes(1, 'big')
+     # 5バイト
+     payload_length = data_size.to_bytes(5, 'big')
+     header = json_length + media_type_length + payload_length
+     
+     return [header, data]
 
 def receive_movie_data(connection, filesize):
      data = b''
@@ -100,6 +119,8 @@ def save_data(data: bytes):
 
      with open(filepath, 'wb') as f:
           f.write(data)
+
+     return filepath
 
 def calc_movie_size(path='uploaded'):
      total = 0

@@ -7,6 +7,11 @@ import os
 
 def main():
      config = load_config()
+     current_size = calc_movie_size()
+     if current_size > config["max_total_capacity"]:
+          print('You can not upload any more videos.')
+          sys.exit(1)
+     print(f'Saved movies size: {current_size}')
      server_info = (config["server_address"], config["server_port"])
      tcp_handler(server_info)
 
@@ -38,7 +43,7 @@ def handle_client(connection, address):
           connection.sendall(response)
           print('Sent response')
 
-          # save_data(data)
+          save_data(data)
 
      except Exception as e:
           print(f'{str(e)}')
@@ -95,6 +100,19 @@ def save_data(data: bytes):
 
      with open(filepath, 'wb') as f:
           f.write(data)
+
+def calc_movie_size(path='uploaded'):
+     if not os.path.exists(path):
+          print('Uploaded file is none')
+          return 0
+     
+     total = 0
+     for movie in os.listdir(path):
+          movie_path = os.path.join(path, movie)
+          if os.path.isfile(movie_path):
+               total += os.path.getsize(movie_path)
+
+     return total
 
 if __name__ == "__main__":
     main()

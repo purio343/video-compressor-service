@@ -3,6 +3,7 @@ import json
 import sys
 import os
 import math
+import time
 from tqdm import tqdm
 
 def main():
@@ -17,6 +18,7 @@ def main():
             print('Only MP4 files are allowed.')
         else:
             break
+
     tcp_handler(file_path, server_info)
 
 def tcp_handler(file_path, server_info):
@@ -25,8 +27,11 @@ def tcp_handler(file_path, server_info):
         tcp_sock.settimeout(15)
         tcp_sock.connect(server_info)
         send_file(tcp_sock, file_path)
-        status_code, file_type = receive_response(tcp_sock)
-        print(f'Server > Status: {status_code}, Type: {file_type}')
+        json_file, media_type, payload = receive_response(tcp_sock)
+        # print(f'Server > Status: {status_code}, Type: {file_type}')
+        print(f'Recieved response')
+        filepath = save_data(payload)
+        print(f'saved movie: {filepath}')
     except socket.timeout:
         print('This connection is time out.')
         sys.exit(1)
@@ -38,30 +43,72 @@ def tcp_handler(file_path, server_info):
     
 def send_file(sock, file_path):
     try:
-        with open(file_path, "rb") as f:
-            filesize = os.path.getsize(file_path)
-            if check_filesize(filesize):
-                print("File size is too large")
-                sys.exit(1)
-            header = filesize.to_bytes(32, 'big')
-            sock.sendall(header)
+        filesize = os.path.getsize(file_path)
+        if check_filesize(filesize):
+            print("File size is too large")
+            sys.exit(1)
+        # header = filesize.to_bytes(32, 'big')
+        # jsonファイルの長さ
+        json_length = os.path.getsize('./frontend/req.json')
+        media_type = os.path.splitext(file_path)[1].encode()
+        media_type_length = len(media_type)
+        header = handle_mmp_header(json_length, media_type_length, filesize)
+        sock.sendall(header)
 
-            with tqdm(total=filesize, unit='B', unit_scale=True, desc='Uploading') as pbar:
-                data = f.read(1400)
-                while data:
-                    sock.sendall(data)
-                    pbar.update(len(data))
-                    data = f.read(1400)
+        json_file = b''
+        with open('./frontend/req.json', 'rb') as f:
+            json_file = f.read()
+
+        # body = json_file + media_type + payload
+        # sock.sendall(body)
+        sock.sendall(json_file)
+        sock.sendall(media_type)
+
+        # 動画ファイルを送信
+        with open(file_path, 'rb') as f:
+            data = f.read(4000)
+            while data:
+                print('Sending data...')
+                sock.sendall(data)
+                data = f.read(4000)
+
     except FileNotFoundError as e:
         print(f'File not found: {e}')
         sys.exit(1)
 
+def save_data(data: bytes):
+    folder = 'compressed'
+    filename = f'{str(time.time())}.mp4'
+    filepath = os.path.join(folder, filename)
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    with open(filepath, 'wb') as f:
+        f.write(data)
+    
+    return filepath
+
+
+def handle_mmp_header(json_length, media_type_length, filesize_length):
+    header = json_length.to_bytes(2, 'big')
+    header += media_type_length.to_bytes(1, 'big')
+    header += filesize_length.to_bytes(5, 'big')
+    return header
+
 def receive_response(sock):
     try:
-        response = sock.recv(16)
-        status_code = response[:4].decode().strip()
-        file_type = response[4:8].decode().strip()
-        return [status_code, file_type]
+        header = sock.recv(8)
+        json_length = int.from_bytes(header[:2], 'big')
+        media_type_length = int.from_bytes(header[2:3], 'big')
+        payload_length = int.from_bytes(header[3:8], 'big')
+        
+        json_file = sock.recv(json_length)
+        media_type = sock.recv(media_type_length).decode()
+        payload = recv_movie_data(sock, payload_length)
+        # status_code = response[:4].decode().strip()
+        # file_type = response[4:8].decode().strip()
+        return [json_file, media_type, payload]
     except socket.error as e:
         print(f'Error receiving response: {e}')
         sys.exit(1)
@@ -79,6 +126,17 @@ def load_config(path="config.json"):
 
 def check_filesize(filesize):
     return filesize > math.pow(2, 32)
+
+def recv_movie_data(connection, filesize):
+    data = b''
+    while len(data) < filesize:
+        chunk = connection.recv(min(filesize - len(data), 1400))
+        if not chunk:
+            raise Exception('Connection is closed')
+        data += chunk
+    
+    return data
+
 
 if __name__ == "__main__":
     main()

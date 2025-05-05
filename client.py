@@ -28,9 +28,11 @@ def tcp_handler(file_path, server_info):
         tcp_sock.settimeout(15)
         tcp_sock.connect(server_info)
         send_file(tcp_sock, file_path)
-        json_file, media_type, payload = receive_response(tcp_sock)
+        # Todo: サーバーからの応答でJSONをもらうようにする。
+        media_type, payload = receive_response(tcp_sock)
         # print(f'Server > Status: {status_code}, Type: {file_type}')
         print(f'Recieved response')
+        print(f'media_type: {media_type}')
         filepath = save_data(payload)
         print(f'saved movie: {filepath}')
     except socket.timeout:
@@ -104,12 +106,11 @@ def receive_response(sock):
         media_type_length = int.from_bytes(header[2:3], 'big')
         payload_length = int.from_bytes(header[3:8], 'big')
         
-        json_file = sock.recv(json_length)
         media_type = sock.recv(media_type_length).decode()
         payload = recv_movie(sock, payload_length)
         # status_code = response[:4].decode().strip()
         # file_type = response[4:8].decode().strip()
-        return [json_file, media_type, payload]
+        return [media_type, payload]
     except socket.error as e:
         print(f'Error receiving response: {e}')
         sys.exit(1)

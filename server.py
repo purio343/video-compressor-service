@@ -4,16 +4,17 @@ import sys
 import json
 import time
 import os
-from editing import compress_video
+from backend.editing import compress_video
 from utils import *
 
 def main():
      config = load_config()
-     current_size = calc_movie_size()
-     if current_size > config["max_total_capacity"]:
-          print('You can not upload any more videos.')
-          sys.exit(1)
-     print(f'Saved movies size: {current_size}')
+     # 加工処理した動画は削除するため一旦無効化
+     # current_size = calc_movie_size()
+     # if current_size > config["max_total_capacity"]:
+     #      print('You can not upload any more videos.')
+     #      sys.exit(1)
+     # print(f'Saved movies size: {current_size}')
      server_info = (config["server_address"], config["server_port"])
      tcp_handler(server_info)
 
@@ -44,7 +45,7 @@ def handle_client(connection, address):
           # 動画ファイル
           payload = recv_movie(connection, payload_length)
           # 処理前の動画を保存してパスを返す
-          file_path = save_data(payload)
+          file_path = save_data('uploaded', payload)
           print(f'before compressed data_size: {os.path.getsize(file_path)}')
           # 送信されたjsonファイルから要求されたリクエストを読み取る
           operation = json.loads(json_file.decode())["operation"]
@@ -110,16 +111,6 @@ def create_response(data, data_size):
      
      return [header, body]
 
-# def receive_movie_data(connection, filesize):
-#      data = b''
-#      while len(data) < filesize:
-#           chunk = connection.recv(min(filesize - len(data), 1400))
-#           if not chunk:
-#                raise Exception("Connection is closed")
-#           data += chunk
-          
-#      return data
-
 def load_config(path='config.json'):
      try:
           with open(path, 'r') as f:
@@ -130,32 +121,6 @@ def load_config(path='config.json'):
      except json.JSONDecodeError:
           print(f'Invalid JSON format in config file: {path}')
           sys.exit(1)
-
-def save_data(data: bytes):
-     folder = 'uploaded'
-     filename = f'{str(time.time())}.mp4'
-     filepath = os.path.join(folder, filename)
-
-     if not os.path.exists(folder):
-          os.makedirs(folder)
-
-     with open(filepath, 'wb') as f:
-          f.write(data)
-
-     return filepath
-
-def calc_movie_size(path='uploaded'):
-     total = 0
-     if not os.path.exists(path):
-          print('Uploaded file is none')
-          return total
-     
-     for movie in os.listdir(path):
-          movie_path = os.path.join(path, movie)
-          if os.path.isfile(movie_path):
-               total += os.path.getsize(movie_path)
-
-     return total
 
 if __name__ == "__main__":
     main()

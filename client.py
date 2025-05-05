@@ -15,8 +15,6 @@ def main():
         file_path = input("Type the path of the file you want to upload: ")
         if not os.path.exists(file_path):
             print(f'File not found: {file_path}')
-        elif not file_path.lower().endswith('.mp4'):
-            print('Only MP4 files are allowed.')
         else:
             break
 
@@ -33,7 +31,7 @@ def tcp_handler(file_path, server_info):
         # print(f'Server > Status: {status_code}, Type: {file_type}')
         print(f'Recieved response')
         print(f'media_type: {media_type}')
-        filepath = save_data(payload)
+        filepath = save_data('compressed', payload)
         print(f'saved movie: {filepath}')
     except socket.timeout:
         print('This connection is time out.')
@@ -78,20 +76,6 @@ def send_file(sock, file_path):
     except FileNotFoundError as e:
         print(f'File not found: {e}')
         sys.exit(1)
-
-def save_data(data: bytes):
-    folder = 'compressed'
-    filename = f'compressed_{str(time.time())}.mp4'
-    filepath = os.path.join(folder, filename)
-
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    with open(filepath, 'wb') as f:
-        f.write(data)
-    
-    return filepath
-
 
 def handle_mmp_header(json_length, media_type_length, filesize_length):
     header = json_length.to_bytes(2, 'big')

@@ -5,6 +5,7 @@ import os
 import math
 import time
 from tqdm import tqdm
+from utils import *
 
 def main():
     config = load_config()
@@ -49,14 +50,14 @@ def send_file(sock, file_path):
             sys.exit(1)
         # header = filesize.to_bytes(32, 'big')
         # jsonファイルの長さ
-        json_length = os.path.getsize('./frontend/req.json')
+        json_length = os.path.getsize('./req.json')
         media_type = os.path.splitext(file_path)[1].encode()
         media_type_length = len(media_type)
         header = handle_mmp_header(json_length, media_type_length, filesize)
         sock.sendall(header)
 
         json_file = b''
-        with open('./frontend/req.json', 'rb') as f:
+        with open('./req.json', 'rb') as f:
             json_file = f.read()
 
         # body = json_file + media_type + payload
@@ -78,7 +79,7 @@ def send_file(sock, file_path):
 
 def save_data(data: bytes):
     folder = 'compressed'
-    filename = f'{str(time.time())}.mp4'
+    filename = f'compressed_{str(time.time())}.mp4'
     filepath = os.path.join(folder, filename)
 
     if not os.path.exists(folder):
@@ -105,7 +106,7 @@ def receive_response(sock):
         
         json_file = sock.recv(json_length)
         media_type = sock.recv(media_type_length).decode()
-        payload = recv_movie_data(sock, payload_length)
+        payload = recv_movie(sock, payload_length)
         # status_code = response[:4].decode().strip()
         # file_type = response[4:8].decode().strip()
         return [json_file, media_type, payload]
@@ -126,17 +127,6 @@ def load_config(path="config.json"):
 
 def check_filesize(filesize):
     return filesize > math.pow(2, 32)
-
-def recv_movie_data(connection, filesize):
-    data = b''
-    while len(data) < filesize:
-        chunk = connection.recv(min(filesize - len(data), 1400))
-        if not chunk:
-            raise Exception('Connection is closed')
-        data += chunk
-    
-    return data
-
 
 if __name__ == "__main__":
     main()

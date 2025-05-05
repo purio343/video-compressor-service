@@ -5,6 +5,7 @@ import json
 import time
 import os
 from editing import compress_video
+from utils import *
 
 def main():
      config = load_config()
@@ -41,7 +42,7 @@ def handle_client(connection, address):
           json_file = connection.recv(json_length)
           media_type = connection.recv(media_type_length).decode('utf-8')
           # 動画ファイル
-          payload = receive_movie_data(connection, payload_length)
+          payload = recv_movie(connection, payload_length)
           # 処理前の動画を保存してパスを返す
           file_path = save_data(payload)
           print(f'before compressed data_size: {os.path.getsize(file_path)}')
@@ -93,15 +94,15 @@ def create_response(data, data_size):
      
      return [header, data]
 
-def receive_movie_data(connection, filesize):
-     data = b''
-     while len(data) < filesize:
-          chunk = connection.recv(min(filesize - len(data), 1400))
-          if not chunk:
-               raise Exception("Connection is closed")
-          data += chunk
+# def receive_movie_data(connection, filesize):
+#      data = b''
+#      while len(data) < filesize:
+#           chunk = connection.recv(min(filesize - len(data), 1400))
+#           if not chunk:
+#                raise Exception("Connection is closed")
+#           data += chunk
           
-     return data
+#      return data
 
 def load_config(path='config.json'):
      try:

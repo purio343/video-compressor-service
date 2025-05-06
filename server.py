@@ -55,10 +55,10 @@ def handle_client(connection, address):
           print(f'operation: {operation}')
           print(f'saved_filepath: {file_path}')
 
-          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズを返す
-          data, data_size, compressed_path = handle_payload(operation, file_path) 
+          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す
+          data, data_size, compressed_path, video_info = handle_payload(operation, file_path) 
           print(f'after compressed_datasize: {data_size}')         
-          compressed_header, compressed_body = create_response(data, data_size)
+          compressed_header, compressed_body = create_response(data, data_size, video_info)
           connection.sendall(compressed_header)
           connection.sendall(compressed_body)
           print('Sent response')
@@ -74,12 +74,12 @@ def handle_client(connection, address):
 
 def handle_payload(operation, file_path):
      if operation == 1:
-          compressed_path = compress_video(file_path)
+          compressed_path, video_info = compress_video(file_path)
           compressed_size = os.path.getsize(compressed_path)
           data = b''
           with open(compressed_path, 'rb') as f:
                data = f.read()
-          return [data, compressed_size, compressed_path]
+          return [data, compressed_size, compressed_path, video_info]
      
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
@@ -97,9 +97,10 @@ def cleanup_movie_data(path, compressed_path):
      else:
           print('compressed movie data is none')
 
-def create_response(data, data_size):
+def create_response(data, data_size, video_info):
+     video_info_bytes = video_info.encode()
      # 2バイト
-     json_length = len(b'\x00\x00').to_bytes(2, 'big')
+     json_length = len(video_info_bytes).to_bytes(2, 'big')
      # 1バイト, Todo:動的に返すようにする
      media_type_length = len(b'mp4 ').to_bytes(1, 'big')
      # 5バイト
@@ -107,7 +108,7 @@ def create_response(data, data_size):
 
      header = json_length + media_type_length + payload_length
      # Todo: クライアントへの返信時のボディのJSONを含める。
-     body = 'mp4 '.encode('utf-8') + data
+     body = video_info_bytes + 'mp4 '.encode('utf-8') + data
      
      return [header, body]
 

@@ -27,9 +27,10 @@ def tcp_handler(file_path, server_info):
         tcp_sock.connect(server_info)
         send_file(tcp_sock, file_path)
         # Todo: サーバーからの応答でJSONをもらうようにする。
-        media_type, payload = receive_response(tcp_sock)
-        # print(f'Server > Status: {status_code}, Type: {file_type}')
+        json_file, media_type, payload = receive_response(tcp_sock)
         print(f'Recieved response')
+        print('json_file: ')
+        print(json_file)
         print(f'media_type: {media_type}')
         filepath = save_data('compressed', payload)
         print(f'saved movie: {filepath}')
@@ -48,7 +49,6 @@ def send_file(sock, file_path):
         if check_filesize(filesize):
             print("File size is too large")
             sys.exit(1)
-        # header = filesize.to_bytes(32, 'big')
         # jsonファイルの長さ
         json_length = os.path.getsize('./req.json')
         media_type = os.path.splitext(file_path)[1].encode()
@@ -90,11 +90,10 @@ def receive_response(sock):
         media_type_length = int.from_bytes(header[2:3], 'big')
         payload_length = int.from_bytes(header[3:8], 'big')
         
+        json_file = sock.recv(json_length).decode()
         media_type = sock.recv(media_type_length).decode()
         payload = recv_movie(sock, payload_length)
-        # status_code = response[:4].decode().strip()
-        # file_type = response[4:8].decode().strip()
-        return [media_type, payload]
+        return [json_file, media_type, payload]
     except socket.error as e:
         print(f'Error receiving response: {e}')
         sys.exit(1)

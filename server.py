@@ -4,7 +4,7 @@ import sys
 import json
 import time
 import os
-from backend.editing import compress_video
+from backend.editing import *
 from utils import *
 
 def main():
@@ -35,7 +35,7 @@ def handle_client(connection, address):
           # ヘッダーは8バイト
           header = connection.recv(8)
           print('Received header')
-          # filesize = int.from_bytes(header, "big")
+
           json_length = int.from_bytes(header[:2], 'big')
           media_type_length = int.from_bytes(header[2:3], 'big')
           payload_length = int.from_bytes(header[3:8], 'big')
@@ -48,7 +48,8 @@ def handle_client(connection, address):
           file_path = save_data('uploaded', payload)
           print(f'before compressed data_size: {os.path.getsize(file_path)}')
           # 送信されたjsonファイルから要求されたリクエストを読み取る
-          operation = json.loads(json_file.decode())["operation"]
+          json_dic = json.loads(json_file.decode())
+          operation = json_dic['operation']
 
           # クライアントからの情報の確認 -> ok
           print(f'mediatype: {media_type}')
@@ -56,13 +57,13 @@ def handle_client(connection, address):
           print(f'saved_filepath: {file_path}')
 
           # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す
-          data, data_size, compressed_path, video_info = handle_payload(operation, file_path) 
-          print(f'after compressed_datasize: {data_size}')         
+          data, data_size, compressed_path, video_info = handle_payload(operation, file_path, json_dic)         
           compressed_header, compressed_body = create_response(data, data_size, video_info)
           connection.sendall(compressed_header)
           connection.sendall(compressed_body)
           print('Sent response')
-          cleanup_movie_data(file_path, compressed_path)
+          # デバッグ用に保存した動画情報削除処理をコメントアウト
+          # cleanup_movie_data(file_path, compressed_path)
 
      except Exception as e:
           print(f'{str(e)}')
@@ -72,13 +73,35 @@ def handle_client(connection, address):
      finally:
           connection.close()
 
-def handle_payload(operation, file_path):
+def handle_payload(operation, file_path, json_dic):
      if operation == 1:
           compressed_path, video_info = compress_video(file_path)
           compressed_size = os.path.getsize(compressed_path)
           data = b''
           with open(compressed_path, 'rb') as f:
                data = f.read()
+
+          print(f'compressed video: {compressed_path}')
+          return [data, compressed_size, compressed_path, video_info]
+     elif operation == 2:
+          definition = json_dic["definition"]
+          compressed_path, video_info = convert_definition(file_path, definition)
+          compressed_size = os.path.getsize(compressed_path)
+          data = b''
+          with open(compressed_path, 'rb') as f:
+               data = f.read()
+          
+          print(f'converted definition movie: {compressed_path}')
+          return [data, compressed_size, compressed_path, video_info]
+     elif operation == 3:
+          ratio = json_dic["ratio"]
+          compressed_path, video_info = change_aspect_ratio(file_path, ratio)
+          compressed_size = os.path.getsize(compressed_path)
+          data = b''
+          with open(compressed_path, 'rb') as f:
+               data = f.read()
+          
+          print(f'changed ratio: {compressed_path}')
           return [data, compressed_size, compressed_path, video_info]
      
 # 受信したバイト列からmp4かどうかを判断

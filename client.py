@@ -13,20 +13,22 @@ def main():
 
     while True:
         file_path = input("Type the path of the file you want to upload: ")
+        json_path = input("Type the path of the json file: ")
         if not os.path.exists(file_path):
             print(f'File not found: {file_path}')
+        elif not os.path.exists(json_path):
+            print(f'Json file not found: {json_path}')
         else:
             break
 
-    tcp_handler(file_path, server_info)
+    tcp_handler(file_path, json_path, server_info)
 
-def tcp_handler(file_path, server_info):
+def tcp_handler(file_path, json_path, server_info):
     try:
         tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_sock.settimeout(15)
         tcp_sock.connect(server_info)
-        send_file(tcp_sock, file_path)
-        # Todo: サーバーからの応答でJSONをもらうようにする。
+        send_file(tcp_sock, file_path, json_path)
         json_file, media_type, payload = receive_response(tcp_sock)
         print(f'Recieved response')
         print('json_file: ')
@@ -43,21 +45,21 @@ def tcp_handler(file_path, server_info):
     finally:
         tcp_sock.close()
     
-def send_file(sock, file_path):
+def send_file(sock, file_path, json_path):
     try:
         filesize = os.path.getsize(file_path)
         if check_filesize(filesize):
             print("File size is too large")
             sys.exit(1)
         # jsonファイルの長さ
-        json_length = os.path.getsize('./req.json')
+        json_length = os.path.getsize(json_path)
         media_type = os.path.splitext(file_path)[1].encode()
         media_type_length = len(media_type)
         header = handle_mmp_header(json_length, media_type_length, filesize)
         sock.sendall(header)
 
         json_file = b''
-        with open('./req.json', 'rb') as f:
+        with open(json_path, 'rb') as f:
             json_file = f.read()
 
         # body = json_file + media_type + payload

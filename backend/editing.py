@@ -6,7 +6,11 @@ def compress_video(file_path):
     print(f'filepath: {file_path}')
     output_path = os.path.splitext(file_path)[0] + '_compressed.mp4'
     # 加工処理
-    ffmpeg.input(file_path).output(output_path, crf=28).run()
+    try:
+        ffmpeg.input(file_path).output(output_path, crf=28).run()
+    except ffmpeg.Error as e:
+        print(f'Failed to compress: {e.stderr.decode()}') 
+    
     video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
     
     return [output_path, video_info]
@@ -17,7 +21,11 @@ def convert_definition(file_path, definition):
     height = int(definition["height"])
     output_path = os.path.splitext(file_path)[0] + '_convert_definition.mp4'
     # 加工処理
-    ffmpeg.input(file_path).filter('scale', width, height).output(output_path).run()
+    try:
+        ffmpeg.input(file_path).filter('scale', width, height).output(output_path).run()
+    except ffmpeg.Error as e:
+        print(f'Failed to convert definition: {e.stderr.decode()}')
+        
     video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
 
     return [output_path, video_info]
@@ -28,7 +36,11 @@ def change_aspect_ratio(file_path, aspect_ratio):
     output_path = os.path.splitext(file_path)[0] + '_changed_aspect.mp4'
     aspect_filter = f"setsar=1,pad=iw*{height}/{width}:ih:(ow-iw)/2:(oh-ih)/2"
     # 加工処理
-    ffmpeg.input(file_path).output(output_path, vf=aspect_filter).run()
+    try:
+        ffmpeg.input(file_path).output(output_path, vf=aspect_filter).run()
+    except ffmpeg.Error as e:
+        print(f'Failed to change aspect ratio: {str(e)}')
+    
     video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
 
     return [output_path, video_info]

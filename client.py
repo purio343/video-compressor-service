@@ -13,7 +13,8 @@ def main():
 
     while True:
         file_path = input("Type the path of the file you want to upload: ")
-        json_path = input("Type the path of the json file: ")
+        json_file = input("Type the path of the json file: ")
+        json_path = os.path.join('requests', json_file)
         if not os.path.exists(file_path):
             print(f'File not found: {file_path}')
         elif not os.path.exists(json_path):

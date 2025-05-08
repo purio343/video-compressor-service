@@ -47,7 +47,7 @@ def handle_client(connection, address):
           # 処理前の動画を保存してパスを返す
           file_path = save_data('uploaded', payload, media_type)
           print(f'before compressed data_size: {os.path.getsize(file_path)}')
-          # 送信されたjsonファイルから要求されたリクエストを読み取る
+          # 送信されたjson文字列から要求されたリクエストを読み取る
           json_dic = json.loads(json_file.decode())
           operation = json_dic['operation']
 
@@ -112,6 +112,15 @@ def handle_payload(operation, file_path, json_dic):
 
           print(f'extract audio: {compressed_path}')
           return [data, compressed_size, compressed_path, audio_info]
+     elif operation == 5:
+          split_time = json_dic["time"]
+          compressed_path, gif_info = convert_gif(file_path, split_time)
+          compressed_size = os.path.getsize(compressed_path)
+          data = b''
+          with open(compressed_path, 'rb') as f:
+               data = f.read()
+
+          return [data, compressed_size, compressed_path, gif_info]
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
      return b'ftyp' in data[:12]

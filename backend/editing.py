@@ -52,10 +52,18 @@ def extract_audio(file_path):
     except ffmpeg.Error as e:
         print(f'Failed to extract audio: {str(e)}')
 
-    # audio_info = json.dumps(ffmpeg.probe(output_path), indent=2)
     audio_info = ffmpeg.probe(output_path)
     return [output_path, audio_info]
 
 # Todo: 指定された時間範囲を切り取ってGIFまたはWEBMを返す。
-def convert_gif(file_path):
-    return ""
+def convert_gif(file_path, split_time):
+    start = split_time["start"]
+    end = split_time["end"]
+    output_path = os.path.splitext(file_path)[0] + 'conv_img.gif'
+    try:
+        ffmpeg.input(file_path).filter('fps', fps=10, round='up').output(output_path, format='gif', ss=start, t=end).run()
+    except ffmpeg.Error as e:
+        print(f'Failed to convert gif: {str(e)}')
+
+    gif_info = ffmpeg.probe(output_path)
+    return [output_path, gif_info]

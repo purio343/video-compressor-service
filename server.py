@@ -56,9 +56,10 @@ def handle_client(connection, address):
           print(f'operation: {operation}')
           print(f'saved_filepath: {file_path}')
 
-          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す
-          data, data_size, compressed_path, video_info = handle_payload(operation, file_path, json_dic)         
-          compressed_header, compressed_body = create_response(data, data_size, video_info)
+          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す         
+          video_dic = handle_payload(operation, file_path, json_dic)
+          # 加工データを基にレスポンス用のヘッダとボディを作成
+          compressed_header, compressed_body = create_response(video_dic["bytes"], video_dic["size"], video_dic["info"])
           connection.sendall(compressed_header)
           connection.sendall(compressed_body)
           print('Sent response')
@@ -74,39 +75,61 @@ def handle_client(connection, address):
           connection.close()
 
 def handle_payload(operation, file_path, json_dic):
+     video_dic = {}
+
      if operation == 1:
           compressed_path, video_info = compress_video(file_path)
           compressed_size = os.path.getsize(compressed_path)
-          data = get_movie_data(compressed_path)
-
-          return [data, compressed_size, compressed_path, video_info]
+          video_dic = {
+               "bytes": get_movie_data(compressed_path),
+               "size": compressed_size,
+               "path": compressed_path,
+               "info": video_info
+          }
      elif operation == 2:
           definition = json_dic["definition"]
           compressed_path, video_info = convert_definition(file_path, definition)
           compressed_size = os.path.getsize(compressed_path)
           data = get_movie_data(compressed_path)
-
-          return [data, compressed_size, compressed_path, video_info]
+          video_dic = {
+               "bytes": get_movie_data(compressed_path),
+               "size": compressed_size,
+               "path": compressed_path,
+               "info": video_info
+          }
      elif operation == 3:
           ratio = json_dic["ratio"]
           compressed_path, video_info = change_aspect_ratio(file_path, ratio)
           compressed_size = os.path.getsize(compressed_path)
           data = get_movie_data(compressed_path)
-          
-          return [data, compressed_size, compressed_path, video_info]
+          video_dic = {
+               "bytes": get_movie_data(compressed_path),
+               "size": compressed_size,
+               "path": compressed_path,
+               "info": video_info
+          }
      elif operation == 4:
           compressed_path, audio_info = extract_audio(file_path)
           compressed_size = os.path.getsize(compressed_path)
-          data = get_movie_data(compressed_path)
-
-          return [data, compressed_size, compressed_path, audio_info]
+          video_dic = {
+               "bytes": get_movie_data(compressed_path),
+               "size": compressed_size,
+               "path": compressed_path,
+               "info": audio_info
+          }
      elif operation == 5:
           split_time = json_dic["time"]
           compressed_path, gif_info = convert_gif(file_path, split_time)
           compressed_size = os.path.getsize(compressed_path)
           data = get_movie_data(compressed_path)
+          video_dic = {
+               "bytes": get_movie_data(compressed_path),
+               "size": compressed_size,
+               "path": compressed_path,
+               "info": gif_info
+          }
 
-          return [data, compressed_size, compressed_path, gif_info]
+     return video_dic
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
      return b'ftyp' in data[:12]

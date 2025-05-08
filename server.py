@@ -45,7 +45,7 @@ def handle_client(connection, address):
           # 動画ファイル
           payload = recv_movie(connection, payload_length)
           # 処理前の動画を保存してパスを返す
-          file_path = save_data('uploaded', payload)
+          file_path = save_data('uploaded', payload, media_type)
           print(f'before compressed data_size: {os.path.getsize(file_path)}')
           # 送信されたjsonファイルから要求されたリクエストを読み取る
           json_dic = json.loads(json_file.decode())
@@ -103,7 +103,15 @@ def handle_payload(operation, file_path, json_dic):
           
           print(f'changed ratio: {compressed_path}')
           return [data, compressed_size, compressed_path, video_info]
-     
+     elif operation == 4:
+          compressed_path, audio_info = extract_audio(file_path)
+          compressed_size = os.path.getsize(compressed_path)
+          data = b''
+          with open(compressed_path, 'rb') as f:
+               data = f.read()
+
+          print(f'extract audio: {compressed_path}')
+          return [data, compressed_size, compressed_path, audio_info]
 # 受信したバイト列からmp4かどうかを判断
 def is_mp4(data: bytes):
      return b'ftyp' in data[:12]
@@ -121,17 +129,27 @@ def cleanup_movie_data(path, compressed_path):
           print('compressed movie data is none')
 
 def create_response(data, data_size, video_info):
-     video_info_bytes = video_info.encode()
+     print('video_info')
+     print(video_info)
+     media_type = video_info["streams"][0]["codec_name"]
+     if media_type == 'h264':
+          media_type = "mp4"
+     print("media_type")
+     print(media_type)
+     media_type_bytes = media_type.encode()
+     # video_info_bytes = video_info.encode()
+     video_info_bytes = json.dumps(video_info, indent=2).encode()
      # 2バイト
      json_length = len(video_info_bytes).to_bytes(2, 'big')
      # 1バイト, Todo:動的に返すようにする
-     media_type_length = len(b'mp4 ').to_bytes(1, 'big')
+     media_type_length = len(media_type_bytes).to_bytes(1, 'big')
      # 5バイト
      payload_length = data_size.to_bytes(5, 'big')
 
      header = json_length + media_type_length + payload_length
      # Todo: クライアントへの返信時のボディのJSONを含める。
-     body = video_info_bytes + 'mp4 '.encode('utf-8') + data
+     # body = video_info_bytes + 'mp4 '.encode('utf-8') + data
+     body = video_info_bytes + media_type_bytes + data
      
      return [header, body]
 

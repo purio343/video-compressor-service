@@ -25,11 +25,11 @@ def calc_movie_size(path='uploaded'):
      return total
 
 # Todo: media_typeを使って、mp4以外も保存できるようにする
-def save_data(folder: str, data: bytes) -> str:
+def save_data(folder: str, data: bytes, media_type: str) -> str:
     if folder == 'compressed':
-        filename = f'compressed_{str(time.time())}.mp4'
+        filename = f'compressed_{str(time.time())}.{media_type}'
     else:
-        filename = f'{str(time.time())}.mp4'
+        filename = f'{str(time.time())}.{media_type}'
 
     if not os.path.exists(folder):
         os.makedirs(folder)

@@ -11,8 +11,7 @@ def compress_video(file_path):
     except ffmpeg.Error as e:
         print(f'Failed to compress: {e.stderr.decode()}') 
     
-    video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
-    
+    video_info = ffmpeg.probe(output_path)
     return [output_path, video_info]
 
 # Todo: 出力後のファイルに何故か音がない
@@ -26,7 +25,7 @@ def convert_definition(file_path, definition):
     except ffmpeg.Error as e:
         print(f'Failed to convert definition: {e.stderr.decode()}')
         
-    video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
+    video_info  = ffmpeg.probe(output_path)
 
     return [output_path, video_info]
 
@@ -41,13 +40,21 @@ def change_aspect_ratio(file_path, aspect_ratio):
     except ffmpeg.Error as e:
         print(f'Failed to change aspect ratio: {str(e)}')
     
-    video_info = json.dumps(ffmpeg.probe(output_path), indent=2)
+    video_info = ffmpeg.probe(output_path)
 
     return [output_path, video_info]
 
 # Todo: 音声だけを抽出したMP3を返す。
 def extract_audio(file_path):
-    return ""
+    output_path = os.path.splitext(file_path)[0] + 'extract_audio.mp3'
+    try:
+        ffmpeg.input(file_path).output(output_path, format='mp3').run()
+    except ffmpeg.Error as e:
+        print(f'Failed to extract audio: {str(e)}')
+
+    # audio_info = json.dumps(ffmpeg.probe(output_path), indent=2)
+    audio_info = ffmpeg.probe(output_path)
+    return [output_path, audio_info]
 
 # Todo: 指定された時間範囲を切り取ってGIFまたはWEBMを返す。
 def convert_gif(file_path):

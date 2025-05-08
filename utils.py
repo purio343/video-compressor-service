@@ -1,7 +1,8 @@
 import os
 import time
+import socket
 
-def recv_movie(connection, filesize) -> bytes:
+def recv_movie(connection: socket.socket, filesize: int) -> bytes:
     data = b''
     while len(data) < filesize:
         chunk = connection.recv(min(1400, filesize - len(data)))
@@ -26,7 +27,7 @@ def calc_movie_size(path='uploaded'):
 
 # 動画保存用の処理
 def save_data(folder: str, data: bytes, media_type: str) -> str:
-    if folder == 'compressed':
+    if folder.strip() == 'compressed':
         filename = f'compressed_{str(time.time())}.{media_type}'
     else:
         filename = f'{str(time.time())}.{media_type}'
@@ -34,6 +35,7 @@ def save_data(folder: str, data: bytes, media_type: str) -> str:
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+    # 動画保存時のパス
     file_path = os.path.join(folder, filename)
 
     with open(file_path, 'wb') as f:

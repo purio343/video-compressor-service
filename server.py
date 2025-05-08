@@ -44,14 +44,14 @@ def handle_client(connection, address):
           media_type = connection.recv(media_type_length).decode('utf-8')
           # 動画ファイル
           payload = recv_movie(connection, payload_length)
+          save_folder = 'uploaded'
           # 処理前の動画を保存してパスを返す
-          file_path = save_data('uploaded', payload, media_type)
-          print(f'before compressed data_size: {os.path.getsize(file_path)}')
+          file_path = save_data(save_folder, payload, media_type)
           # 送信されたjson文字列から要求されたリクエストを読み取る
           json_dic = json.loads(json_file.decode())
           operation = json_dic['operation']
 
-          # クライアントからの情報の確認 -> ok
+          # クライアントからの情報の確認
           print(f'mediatype: {media_type}')
           print(f'operation: {operation}')
           print(f'saved_filepath: {file_path}')
@@ -77,48 +77,34 @@ def handle_payload(operation, file_path, json_dic):
      if operation == 1:
           compressed_path, video_info = compress_video(file_path)
           compressed_size = os.path.getsize(compressed_path)
-          data = b''
-          with open(compressed_path, 'rb') as f:
-               data = f.read()
+          data = get_movie_data(compressed_path)
 
-          print(f'compressed video: {compressed_path}')
           return [data, compressed_size, compressed_path, video_info]
      elif operation == 2:
           definition = json_dic["definition"]
           compressed_path, video_info = convert_definition(file_path, definition)
           compressed_size = os.path.getsize(compressed_path)
-          data = b''
-          with open(compressed_path, 'rb') as f:
-               data = f.read()
-          
-          print(f'converted definition movie: {compressed_path}')
+          data = get_movie_data(compressed_path)
+
           return [data, compressed_size, compressed_path, video_info]
      elif operation == 3:
           ratio = json_dic["ratio"]
           compressed_path, video_info = change_aspect_ratio(file_path, ratio)
           compressed_size = os.path.getsize(compressed_path)
-          data = b''
-          with open(compressed_path, 'rb') as f:
-               data = f.read()
+          data = get_movie_data(compressed_path)
           
-          print(f'changed ratio: {compressed_path}')
           return [data, compressed_size, compressed_path, video_info]
      elif operation == 4:
           compressed_path, audio_info = extract_audio(file_path)
           compressed_size = os.path.getsize(compressed_path)
-          data = b''
-          with open(compressed_path, 'rb') as f:
-               data = f.read()
+          data = get_movie_data(compressed_path)
 
-          print(f'extract audio: {compressed_path}')
           return [data, compressed_size, compressed_path, audio_info]
      elif operation == 5:
           split_time = json_dic["time"]
           compressed_path, gif_info = convert_gif(file_path, split_time)
           compressed_size = os.path.getsize(compressed_path)
-          data = b''
-          with open(compressed_path, 'rb') as f:
-               data = f.read()
+          data = get_movie_data(compressed_path)
 
           return [data, compressed_size, compressed_path, gif_info]
 # 受信したバイト列からmp4かどうかを判断
@@ -172,6 +158,10 @@ def load_config(path='config.json'):
      except json.JSONDecodeError:
           print(f'Invalid JSON format in config file: {path}')
           sys.exit(1)
+
+def get_movie_data(path: str) -> bytes:
+     with open(path, 'rb') as f:
+          return f.read()
 
 if __name__ == "__main__":
     main()

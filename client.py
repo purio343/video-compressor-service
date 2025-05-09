@@ -10,18 +10,7 @@ from utils import *
 def main():
     config = load_config()
     server_info = (config["server_address"], config["server_port"])
-
-    while True:
-        file_path = input("Type the path of the file you want to upload: ")
-        json_file = input("Type the path of the json file: ")
-        json_path = os.path.join('requests', json_file)
-        if not os.path.exists(file_path):
-            print(f'File not found: {file_path}')
-        elif not os.path.exists(json_path):
-            print(f'Json file not found: {json_path}')
-        else:
-            break
-
+    file_path, json_path = get_upload_data()
     tcp_handler(file_path, json_path, server_info)
 
 def tcp_handler(file_path, json_path, server_info):
@@ -30,6 +19,7 @@ def tcp_handler(file_path, json_path, server_info):
         tcp_sock.settimeout(15)
         tcp_sock.connect(server_info)
         send_file(tcp_sock, file_path, json_path)
+        # 加工処理された動画データを受信
         json_file, media_type, payload = receive_response(tcp_sock)
         print(f'Recieved response')
         print('json_file: ')
@@ -55,36 +45,29 @@ def send_file(sock, file_path, json_path):
         # jsonファイルの長さ
         json_length = os.path.getsize(json_path)
         media_type = os.path.splitext(file_path)[1].encode()
-        media_type_length = len(media_type)
-        header = handle_mmp_header(json_length, media_type_length, filesize)
+        header = handle_mmp_header(json_length, len(media_type), filesize)
         sock.sendall(header)
 
         json_file = b''
         with open(json_path, 'rb') as f:
             json_file = f.read()
 
-        # body = json_file + media_type + payload
-        # sock.sendall(body)
         sock.sendall(json_file)
         sock.sendall(media_type)
-
-        # 動画ファイルを送信
         with open(file_path, 'rb') as f:
-            data = f.read(4000)
-            while data:
-                print('Sending data...')
-                sock.sendall(data)
-                data = f.read(4000)
+            data = f.read()
+            sock.sendall(data)
+        # 動画ファイルを送信
+        # with open(file_path, 'rb') as f:
+        #     data = f.read(4000)
+        #     while data:
+        #         print('Sending data...')
+        #         sock.sendall(data)
+        #         data = f.read(4000)
 
     except FileNotFoundError as e:
         print(f'File not found: {e}')
         sys.exit(1)
-
-def handle_mmp_header(json_length, media_type_length, filesize_length):
-    header = json_length.to_bytes(2, 'big')
-    header += media_type_length.to_bytes(1, 'big')
-    header += filesize_length.to_bytes(5, 'big')
-    return header
 
 def receive_response(sock):
     try:
@@ -113,7 +96,26 @@ def load_config(path="config.json"):
         sys.exit(1)
 
 def check_filesize(filesize):
-    return filesize > math.pow(2, 32)
+    return filesize > math.pow(2, 40)
+
+def get_upload_data():
+    while True:
+        file_path = input("Type the path of the file you want to upload: ")
+        if not os.path.exists(file_path):
+            print(f'File not found: {file_path}')
+            continue
+        else:
+            break
+    while True:
+        json_file = input("Type the path of the json file: ")
+        json_path = os.path.join('requests', json_file)
+        if not os.path.exists(json_path):
+            print(f'Json file not found: {json_path}')
+            continue
+        else:
+            break
+    
+    return [file_path, json_path]
 
 if __name__ == "__main__":
     main()

@@ -42,3 +42,12 @@ def save_data(folder: str, data: bytes, media_type: str) -> str:
         f.write(data)
     
     return file_path
+
+def handle_mmp_header(json_length, media_type_length, filesize_length):
+    # jsonサイズ：2バイト
+    header = json_length.to_bytes(2, 'big')
+    # メディアタイプのサイズ：1バイト
+    header += media_type_length.to_bytes(1, 'big')
+    # 動画ファイルサイズ：5バイト
+    header += filesize_length.to_bytes(5, 'big')
+    return header

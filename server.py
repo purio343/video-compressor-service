@@ -59,9 +59,11 @@ def handle_client(connection, address):
           # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す         
           video_dic = handle_payload(operation, file_path, json_dic)
           # 加工データを基にレスポンス用のヘッダとボディを作成
-          compressed_header, compressed_body = create_response(video_dic["bytes"], video_dic["size"], video_dic["info"])
+          compressed_header, video_info, media_type = create_response(video_dic["bytes"], video_dic["size"], video_dic["info"])
           connection.sendall(compressed_header)
-          connection.sendall(compressed_body)
+          connection.sendall(video_info)
+          connection.sendall(media_type)
+          send_movie(connection, video_dic["path"])
           print('Sent response')
           # デバッグ用に保存した動画情報削除処理をコメントアウト
           # cleanup_movie_data(file_path, compressed_path)
@@ -157,9 +159,11 @@ def create_response(data, data_size, video_info):
      video_info_bytes = json.dumps(video_info, indent=2).encode()
      
      header = handle_mmp_header(len(video_info_bytes), len(media_type_bytes), data_size)
-     body = video_info_bytes + media_type_bytes + data
+     # body = video_info_bytes + media_type_bytes + data
+     body = video_info_bytes + media_type_bytes
      
-     return [header, body]
+     # return [header, body]
+     return [header, video_info_bytes, media_type_bytes]
 
 def load_config(path='config.json'):
      try:

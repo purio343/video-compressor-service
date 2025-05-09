@@ -54,16 +54,7 @@ def send_file(sock, file_path, json_path):
 
         sock.sendall(json_file)
         sock.sendall(media_type)
-        with open(file_path, 'rb') as f:
-            data = f.read()
-            sock.sendall(data)
-        # 動画ファイルを送信
-        # with open(file_path, 'rb') as f:
-        #     data = f.read(4000)
-        #     while data:
-        #         print('Sending data...')
-        #         sock.sendall(data)
-        #         data = f.read(4000)
+        send_movie(sock, file_path)
 
     except FileNotFoundError as e:
         print(f'File not found: {e}')

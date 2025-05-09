@@ -12,6 +12,14 @@ def recv_movie(connection: socket.socket, filesize: int) -> bytes:
     
     return data
 
+def send_movie(connection: socket.socket, filepath: str) -> None:
+    with open(filepath, 'rb') as f:
+        data = f.read(4000)
+        while data:
+            connection.sendall(data)
+            print('Sending data...')
+            data = f.read(4000)
+
 def calc_movie_size(path='uploaded'):
      total = 0
      if not os.path.exists(path):

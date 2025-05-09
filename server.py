@@ -157,24 +157,9 @@ def create_response(data, data_size, video_info):
      print(media_type)
      media_type_bytes = media_type.encode()
      video_info_bytes = json.dumps(video_info, indent=2).encode()
-     
      header = handle_mmp_header(len(video_info_bytes), len(media_type_bytes), data_size)
-     # body = video_info_bytes + media_type_bytes + data
-     body = video_info_bytes + media_type_bytes
-     
-     # return [header, body]
-     return [header, video_info_bytes, media_type_bytes]
 
-def load_config(path='config.json'):
-     try:
-          with open(path, 'r') as f:
-               return json.load(f)
-     except FileNotFoundError:
-          print(f'Config file not found: {path}')
-          sys.exit(1)
-     except json.JSONDecodeError:
-          print(f'Invalid JSON format in config file: {path}')
-          sys.exit(1)
+     return [header, video_info_bytes, media_type_bytes]
 
 def get_movie_data(path: str) -> bytes:
      with open(path, 'rb') as f:

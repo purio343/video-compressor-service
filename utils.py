@@ -1,6 +1,9 @@
 import os
 import time
 import socket
+import json
+import sys
+from tqdm import tqdm
 
 def recv_movie(connection: socket.socket, filesize: int) -> bytes:
     data = b''
@@ -8,17 +11,20 @@ def recv_movie(connection: socket.socket, filesize: int) -> bytes:
         chunk = connection.recv(min(1400, filesize - len(data)))
         if not chunk:
             raise Exception('Connection is closed')
+        
         data += chunk
     
     return data
 
 def send_movie(connection: socket.socket, filepath: str) -> None:
+    size = os.path.getsize(filepath)
     with open(filepath, 'rb') as f:
-        data = f.read(4000)
-        while data:
-            connection.sendall(data)
-            print('Sending data...')
+        with tqdm(total=size, unit="B", unit_scale=True, desc="Sending") as pbar:
             data = f.read(4000)
+            while data:
+                connection.sendall(data)
+                pbar.update(len(data))
+                data = f.read(4000)
 
 def calc_movie_size(path='uploaded'):
      total = 0
@@ -59,3 +65,14 @@ def handle_mmp_header(json_length, media_type_length, filesize_length):
     # 動画ファイルサイズ：5バイト
     header += filesize_length.to_bytes(5, 'big')
     return header
+
+def load_config(path='config.json'):
+     try:
+          with open(path, 'r') as f:
+               return json.load(f)
+     except FileNotFoundError:
+          print(f'Config file not found: {path}')
+          sys.exit(1)
+     except json.JSONDecodeError:
+          print(f'Invalid JSON format in config file: {path}')
+          sys.exit(1)

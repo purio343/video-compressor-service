@@ -70,9 +70,16 @@ def handle_client(connection, address):
 
      except Exception as e:
           print(f'{str(e)}')
-          # 16バイト
-          error_res = b'400 ERR \x00\x00\x00\x00\x00\x00\x00\x00'
-          connection.sendall(error_res)
+          message = "時間をおいてもう一度送信してください。"
+          err_dic = {
+               "code": 400,
+               "description": str(e),
+               "solution": message
+          }
+          err_json = json.dumps(err_dic).encode('utf-8')
+          header  = handle_mmp_header(len(err_json), 0, 0)
+          connection.sendall(header)
+          connection.sendall(err_json)
      finally:
           connection.close()
 

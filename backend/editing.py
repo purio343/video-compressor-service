@@ -1,6 +1,5 @@
 import ffmpeg
 import os
-import json
 
 def compress_video(file_path):
     print(f'filepath: {file_path}')
@@ -73,7 +72,6 @@ def extract_audio(file_path):
     audio_info = ffmpeg.probe(output_path)
     return [output_path, audio_info]
 
-# Todo: 指定された時間範囲を切り取ってGIFまたはWEBMを返す。
 def convert_gif(file_path, split_time, type='gif'):
     start = split_time["start"]
     end = split_time["end"]

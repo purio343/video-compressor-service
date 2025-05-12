@@ -41,11 +41,7 @@ def calc_movie_size(path='uploaded'):
 
 # 動画保存用の処理
 def save_data(folder: str, data: bytes, media_type: str) -> str:
-    if folder.strip() == 'compressed':
-        filename = f'compressed_{str(time.time())}.{media_type}'
-    else:
-        filename = f'{str(time.time())}.{media_type}'
-
+    filename = f'{str(time.time())}.{media_type}'
     if not os.path.exists(folder):
         os.makedirs(folder)
 

@@ -9,15 +9,17 @@ from utils import *
 
 # 処理状況を保存
 processing_status = {}
+lock = threading.Lock()
 
 def main():
      config = load_config()
-     # 加工処理した動画は削除するため一旦無効化
-     # current_size = calc_movie_size()
-     # if current_size > config["max_total_capacity"]:
-     #      print('You can not upload any more videos.')
-     #      sys.exit(1)
-     # print(f'Saved movies size: {current_size}')
+
+     current_size = calc_movie_size()
+     if current_size > config["max_total_capacity"]:
+          print('You can not upload any more videos.')
+          sys.exit(1)
+     print(f'Saved movies size: {current_size}')
+
      server_info = (config["server_address"], config["server_port"])
      tcp_handler(server_info)
 
@@ -35,7 +37,9 @@ def tcp_handler(server_info):
         if ip_address in processing_status:
              print(f'The request from {ip_address} is processing...')
              connection.close()
-        with threading.Lock():
+             continue
+
+        with lock:
              processing_status[ip_address] = {
                   "status": "processing",
                   "progress": 0
@@ -72,7 +76,7 @@ def handle_client(connection, address):
 
           # 加工前の動画パスを格納
           ip_address = str(address[0])
-          with threading.Lock():
+          with lock:
                processing_status[ip_address] = {
                     "file_path": file_path
                }
@@ -82,7 +86,7 @@ def handle_client(connection, address):
           video_dic = handle_payload(operation, file_path, json_dic, ip_address)
           
           # 処理状況を管理する辞書を処理完了として更新
-          with threading.Lock():
+          with lock:
                processing_status[ip_address]["status"] = "completed"
                processing_status[ip_address]["progress"] = 100
                processing_status[ip_address]["file_path"] = video_dic["path"]
@@ -95,10 +99,10 @@ def handle_client(connection, address):
           send_movie(connection, video_dic["path"])
           print('Sent response')
           # 加工後のデータ送信後に、処理状況追跡用の辞書から対象のIPを削除
-          with threading.Lock():
+          with lock:
                del processing_status[ip_address]
-          # デバッグ用に保存した動画情報削除処理をコメントアウト
-          # cleanup_movie_data(file_path, compressed_path)
+          # 保存した動画情報を削除
+          cleanup_movie_data(file_path, video_dic["path"])
 
      except Exception as e:
           print(f'{str(e)}')
@@ -116,7 +120,6 @@ def handle_client(connection, address):
           connection.close()
 
 def handle_payload(operation, file_path, json_dic, ip_address):
-     lock = threading.Lock()
      video_dic = {}
 
      def update_progress(progress: int):
@@ -222,13 +225,14 @@ def get_movie_data(path: str) -> bytes:
 def check_processing_status(ip_address):
      while True:
           try:
-               with threading.Lock():
+               with lock:
                     if ip_address in processing_status and processing_status[ip_address]["status"] != "completed":
                          print(f'The request from {ip_address} is processing {processing_status[ip_address]["progress"]}%')
-                    time.sleep(60)
           except Exception as e:
                print(f'An error occurred in check_processing_status: {e}')
                break
+          finally:
+               time.sleep(60)
 
 if __name__ == "__main__":
     main()

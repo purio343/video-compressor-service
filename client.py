@@ -25,7 +25,7 @@ def tcp_handler(file_path, json_path, server_info):
         print('json_file: ')
         print(json_file)
         print(f'media_type: {media_type}')
-        filepath = save_data('compressed', payload, media_type)
+        filepath = save_data('edited', payload, media_type)
         print(f'saved movie: {filepath}')
     except socket.timeout:
         print('This connection is time out.')

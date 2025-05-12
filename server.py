@@ -7,6 +7,9 @@ import os
 from backend.editing import *
 from utils import *
 
+# 処理状況を保存
+processing_status = {}
+
 def main():
      config = load_config()
      # 加工処理した動画は削除するため一旦無効化
@@ -27,8 +30,20 @@ def tcp_handler(server_info):
 
     while True:
         connection, address = sock.accept()
+        ip_address = str(address[0])
+        # 一つのIPアドレスから複数の処理を受け付けない
+        if ip_address in processing_status:
+             print(f'The request from {ip_address} is processing...')
+             connection.close()
+        with threading.Lock():
+             processing_status[ip_address] = {
+                  "status": "processing",
+                  "progress": 0
+             }
         handle_client_thread = threading.Thread(target=handle_client, args=(connection, address), daemon=True)
+        check_processing_thread = threading.Thread(target=check_processing_status, args=(str(address[0]),), daemon=True)
         handle_client_thread.start()
+        check_processing_thread.start()
         
 def handle_client(connection, address):
      try:
@@ -50,14 +65,28 @@ def handle_client(connection, address):
           # 送信されたjson文字列から要求されたリクエストを読み取る
           json_dic = json.loads(json_file.decode())
           operation = json_dic['operation']
-
           # クライアントからの情報の確認
           print(f'mediatype: {media_type}')
           print(f'operation: {operation}')
           print(f'saved_filepath: {file_path}')
 
-          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す         
-          video_dic = handle_payload(operation, file_path, json_dic)
+          # 加工前の動画パスを格納
+          ip_address = str(address[0])
+          with threading.Lock():
+               processing_status[ip_address] = {
+                    "file_path": file_path
+               }
+
+          # リクエストと動画データを基に処理を行って、その動画のバイト列と動画サイズ、パスと動画情報を返す 
+          # また、処理状況を更新しながら動画の加工処理を行う        
+          video_dic = handle_payload(operation, file_path, json_dic, ip_address)
+          
+          # 処理状況を管理する辞書を処理完了として更新
+          with threading.Lock():
+               processing_status[ip_address]["status"] = "completed"
+               processing_status[ip_address]["progress"] = 100
+               processing_status[ip_address]["file_path"] = video_dic["path"]
+          
           # 加工データを基にレスポンス用のヘッダとボディを作成
           compressed_header, video_info, media_type = create_response(video_dic["bytes"], video_dic["size"], video_dic["info"])
           connection.sendall(compressed_header)
@@ -65,6 +94,9 @@ def handle_client(connection, address):
           connection.sendall(media_type)
           send_movie(connection, video_dic["path"])
           print('Sent response')
+          # 加工後のデータ送信後に、処理状況追跡用の辞書から対象のIPを削除
+          with threading.Lock():
+               del processing_status[ip_address]
           # デバッグ用に保存した動画情報削除処理をコメントアウト
           # cleanup_movie_data(file_path, compressed_path)
 
@@ -83,11 +115,18 @@ def handle_client(connection, address):
      finally:
           connection.close()
 
-def handle_payload(operation, file_path, json_dic):
+def handle_payload(operation, file_path, json_dic, ip_address):
+     lock = threading.Lock()
      video_dic = {}
 
+     def update_progress(progress: int):
+          with lock:
+               processing_status[ip_address]["progress"] = progress
+
      if operation == 1:
+          update_progress(25)
           compressed_path, video_info = compress_video(file_path)
+          update_progress(75)
           compressed_size = os.path.getsize(compressed_path)
           video_dic = {
                "bytes": get_movie_data(compressed_path),
@@ -97,7 +136,9 @@ def handle_payload(operation, file_path, json_dic):
           }
      elif operation == 2:
           definition = json_dic["definition"]
+          update_progress(25)
           compressed_path, video_info = convert_definition(file_path, definition)
+          update_progress(75)
           compressed_size = os.path.getsize(compressed_path)
           video_dic = {
                "bytes": get_movie_data(compressed_path),
@@ -107,7 +148,9 @@ def handle_payload(operation, file_path, json_dic):
           }
      elif operation == 3:
           ratio = json_dic["ratio"]
+          update_progress(25)
           compressed_path, video_info = change_aspect_ratio(file_path, ratio)
+          update_progress(75)
           compressed_size = os.path.getsize(compressed_path)
           video_dic = {
                "bytes": get_movie_data(compressed_path),
@@ -116,7 +159,9 @@ def handle_payload(operation, file_path, json_dic):
                "info": video_info
           }
      elif operation == 4:
+          update_progress(25)
           compressed_path, audio_info = extract_audio(file_path)
+          update_progress(75)
           compressed_size = os.path.getsize(compressed_path)
           video_dic = {
                "bytes": get_movie_data(compressed_path),
@@ -126,7 +171,9 @@ def handle_payload(operation, file_path, json_dic):
           }
      elif operation == 5:
           split_time = json_dic["time"]
+          update_progress(25)
           compressed_path, gif_info = convert_gif(file_path, split_time)
+          update_progress(75)
           compressed_size = os.path.getsize(compressed_path)
           video_dic = {
                "bytes": get_movie_data(compressed_path),
@@ -171,6 +218,17 @@ def create_response(data, data_size, video_info):
 def get_movie_data(path: str) -> bytes:
      with open(path, 'rb') as f:
           return f.read()
+
+def check_processing_status(ip_address):
+     while True:
+          try:
+               with threading.Lock():
+                    if ip_address in processing_status and processing_status[ip_address]["status"] != "completed":
+                         print(f'The request from {ip_address} is processing {processing_status[ip_address]["progress"]}%')
+                    time.sleep(60)
+          except Exception as e:
+               print(f'An error occurred in check_processing_status: {e}')
+               break
 
 if __name__ == "__main__":
     main()

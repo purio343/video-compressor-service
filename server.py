@@ -121,69 +121,34 @@ def handle_client(connection, address):
 
 def handle_payload(operation, file_path, json_dic, ip_address):
      video_dic = {}
+     operations_map = {
+          1: lambda: compress_video(file_path),
+          2: lambda: convert_definition(file_path, json_dic["definition"]),
+          3: lambda: change_aspect_ratio(file_path, json_dic["ratio"]),
+          4: lambda: extract_audio(file_path),
+          5: lambda: convert_gif(file_path, json_dic["time"])
+     }
 
      def update_progress(progress: int):
           with lock:
                processing_status[ip_address]["progress"] = progress
 
-     if operation == 1:
-          update_progress(25)
-          compressed_path, video_info = compress_video(file_path)
-          update_progress(75)
-          compressed_size = os.path.getsize(compressed_path)
-          video_dic = {
-               "bytes": get_movie_data(compressed_path),
-               "size": compressed_size,
-               "path": compressed_path,
-               "info": video_info
-          }
-     elif operation == 2:
-          definition = json_dic["definition"]
-          update_progress(25)
-          compressed_path, video_info = convert_definition(file_path, definition)
-          update_progress(75)
-          compressed_size = os.path.getsize(compressed_path)
-          video_dic = {
-               "bytes": get_movie_data(compressed_path),
-               "size": compressed_size,
-               "path": compressed_path,
-               "info": video_info
-          }
-     elif operation == 3:
-          ratio = json_dic["ratio"]
-          update_progress(25)
-          compressed_path, video_info = change_aspect_ratio(file_path, ratio)
-          update_progress(75)
-          compressed_size = os.path.getsize(compressed_path)
-          video_dic = {
-               "bytes": get_movie_data(compressed_path),
-               "size": compressed_size,
-               "path": compressed_path,
-               "info": video_info
-          }
-     elif operation == 4:
-          update_progress(25)
-          compressed_path, audio_info = extract_audio(file_path)
-          update_progress(75)
-          compressed_size = os.path.getsize(compressed_path)
-          video_dic = {
-               "bytes": get_movie_data(compressed_path),
-               "size": compressed_size,
-               "path": compressed_path,
-               "info": audio_info
-          }
-     elif operation == 5:
-          split_time = json_dic["time"]
-          update_progress(25)
-          compressed_path, gif_info = convert_gif(file_path, split_time)
-          update_progress(75)
-          compressed_size = os.path.getsize(compressed_path)
-          video_dic = {
-               "bytes": get_movie_data(compressed_path),
-               "size": compressed_size,
-               "path": compressed_path,
-               "info": gif_info
-          }
+     update_progress(25)
+
+     if operation not in operations_map:
+          raise ValueError("Unsupported operation")
+
+     compressed_path, media_info = operations_map[operation]()
+
+     update_progress(75)
+
+     compressed_size = os.path.getsize(compressed_path)
+     video_dic = {
+          "bytes": get_movie_data(compressed_path),
+          "size": compressed_size,
+          "path": compressed_path,
+          "info": media_info
+     }
 
      return video_dic
 # 受信したバイト列からmp4かどうかを判断

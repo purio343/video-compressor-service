@@ -3,8 +3,6 @@ import json
 import sys
 import os
 import math
-import time
-from tqdm import tqdm
 from utils import *
 
 def main():
@@ -44,7 +42,7 @@ def send_file(sock, file_path, json_path):
             sys.exit(1)
         # jsonファイルの長さ
         json_length = os.path.getsize(json_path)
-        media_type = os.path.splitext(file_path)[1].encode()
+        media_type = os.path.splitext(file_path)[1][1:].encode()
         header = handle_mmp_header(json_length, len(media_type), filesize)
         sock.sendall(header)
 
@@ -96,32 +94,6 @@ def get_upload_data_path():
             break
     
     return [file_path, json_path]
-
-def check_processing_status(server_info, process_id):
-    try:
-        status_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        status_sock.settimeout(5)
-        status_sock.connect(server_info)
-
-        req = {
-            "type": "status_check",
-            "process_id": process_id
-        }
-        req_json = json.dumps(req).encode()
-        header = handle_mmp_header(len(req_json), 0, 0)
-        status_sock.sendall(header)
-        status_sock.sendall(req_json)
-
-        # レスポンスを受信
-        res = status_sock.recv(1024).decode()
-        status = json.loads(res)
-
-        return status
-    except Exception as e:
-        print(f'Error checking status: {e}')
-        return None
-    finally:
-        status_sock.close()
 
 if __name__ == "__main__":
     main()
